@@ -95,7 +95,7 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
             var added = producer.TryEnqueueEventWithoutWaiting(new EventData($"Event #{ eventNum }"));
             if (!added)
             {
-                // There could be a delay in send, wait and then continue
+                // There could be a delay in publishing, wait and then continue
                 await Task.Delay(TimeSpan.FromSeconds(1));
             }
         }
