@@ -42,7 +42,7 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
 {
     Identifier = "Streaming Producer with custom client",
     MaximumWaitTime = TimeSpan.FromMilliseconds(500),
-    MaximumQueuedEventCount = 500
+    MaximumQueuedEventLimit = 500
     RetryOptions = new EventHubsRetryOptions { TryTimeout = TimeSpan.FromMinutes(5) }
 });    
 ```
@@ -59,10 +59,10 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
     var producer = new StreamingProducer(connectionString, hub);
 
     // Define the Handlers
-    Task SendSuccessfulHandler(SendSucceededEventArgs args)
+    Task SendEventBatchSuccessHandler(SendEventBatchSuccessEventArgs args)
     {
         Console.WriteLine($"The batch was published by { args.PartitionId }:");
-        foreach (var eventData in args.Events)
+        foreach (var eventData in args.EventBatch)
         {
             Console.WriteLine($"Event: { eventData.EventBody }");
         }
@@ -70,7 +70,7 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
         return Task.CompletedTask;
     }
 
-    Task SendFailedHandler(SendFailedEventArgs args)
+    Task SendEventBatchFailHandler(SendEventBatchFailedEventArgs args)
     {
         Console.WriteLine($"Publishing FAILED due to { args.Exception.Message } in partition { args.PartitionId }");
 
@@ -78,8 +78,8 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
     }
 
     // Add the handlers to the producer
-    producer.SendSucceeded += SendSuccessfulHandler;
-    producer.SendFailed += SendFailedHandler;
+    producer.SendEventBatchSuccessAsync += SendEventBatchSuccessHandler;
+    producer.SendEventBatchFailedAsync += SendEventBatchFailHandler;
 
     try
     {
@@ -92,7 +92,12 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
         // Queue a set of events, this call only queues if there is space on the queue, the events are still sent in the background
         for (var eventNum = 0; eventNum < 10; eventNum++)
         {
-            producer.TryEnqueueEvent(new EventData($"Event #{ eventNum }"));
+            var added = producer.TryEnqueueEventWithoutWaiting(new EventData($"Event #{ eventNum }"));
+            if (!added)
+            {
+                // There could be a delay in send, wait and then continue
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
         }
     }
     finally
