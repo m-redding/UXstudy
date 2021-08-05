@@ -88,15 +88,58 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
         {
             await producer.EnqueueEventAsync(new EventData($"Event #{ eventNum }"));
         }
+    }
+    finally
+    {
+        // Close sends all pending queued events and then shuts down the producer
+        await producer.CloseAsync();
+    }
+```
 
+### Pattern for publishing events using the Streaming Producer
+
+```csharp
+// Accessing the Event Hub
+    var connectionString = "<< CONNECTION STRING >>";
+    var eventHubName = "<< EVENT HUB NAME >>";
+
+    // Create the streaming producer
+    var producer = new StreamingProducer(connectionString, hub);
+
+    // Define the Handlers
+    Task SendEventBatchSuccessHandler(SendEventBatchSuccessEventArgs args)
+    {
+        Console.WriteLine($"The batch was published by { args.PartitionId }:");
+        foreach (var eventData in args.EventBatch)
+        {
+            Console.WriteLine($"Event: { eventData.EventBody }");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task SendEventBatchFailHandler(SendEventBatchFailedEventArgs args)
+    {
+        Console.WriteLine($"Publishing FAILED due to { args.Exception.Message } in partition { args.PartitionId }");
+
+        return Task.CompletedTask;
+    }
+
+    // Add the handlers to the producer
+    producer.SendEventBatchSuccessAsync += SendEventBatchSuccessHandler;
+    producer.SendEventBatchFailedAsync += SendEventBatchFailHandler;
+
+    try
+    {
         // Queue a set of events, this call only queues if there is space on the queue, the events are still sent in the background
         for (var eventNum = 0; eventNum < 10; eventNum++)
         {
             var added = producer.TryEnqueueEventWithoutWaiting(new EventData($"Event #{ eventNum }"));
+            
             if (!added)
             {
-                // There could be a delay in publishing, wait and then continue
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                // The event could not be added.
+                throw new Exception($"Event { eventNum } couldn't be enqueued because the queue was full.");
             }
         }
     }
