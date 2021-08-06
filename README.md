@@ -131,10 +131,10 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
 
     try
     {
-        // Only let the program try to send for 5 seconds
+        // Only let the program try to enqueue for 5 seconds
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-        
+
         // Enqueue some events
         for (var eventNum = 0; eventNum < 10; eventNum++)
         {
