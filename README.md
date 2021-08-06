@@ -131,16 +131,15 @@ var producer = new StreamingProducer(connectionString, eventHubName, new Streami
 
     try
     {
-        // Queue a set of events, this call only queues if there is space on the queue, the events are still sent in the background
+        // Only let the program try to send for 5 seconds
+        var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+        
+        // Enqueue some events
         for (var eventNum = 0; eventNum < 10; eventNum++)
         {
-            var added = producer.TryEnqueueEventWithoutWaiting(new EventData($"Event #{ eventNum }"));
-            
-            if (!added)
-            {
-                // The event could not be added.
-                throw new Exception($"Event { eventNum } couldn't be enqueued because the queue was full.");
-            }
+            var eventBody = new EventData($"Event # { eventNum }");
+            await producer.EnqueueEventAsync(eventBody, cancellationTokenSource.Token);
         }
     }
     finally
